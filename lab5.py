@@ -57,13 +57,19 @@ class DataRepository(Generic[T], IDataRepository[T]):
 
     def _load(self) -> list[T]:
         if os.path.exists(self.filepath):
-            with open(self.filepath, 'rb') as f:
-                return pickle.load(f)
+            try:
+                with open(self.filepath, 'rb') as f:
+                    return pickle.load(f)
+            except (OSError, pickle.PickleError) as e:
+                print(f"Ошибка при загрузке данных из {self.filepath}: {e}")
         return []
 
     def _save(self) -> None:
-        with open(self.filepath, 'wb') as f:
-            pickle.dump(self._data, f)
+        try:
+            with open(self.filepath, 'wb') as f:
+                pickle.dump(self._data, f)
+        except (OSError, pickle.PickleError) as e:
+            print(f"Ошибка при сохранении данных в {self.filepath}: {e}")
 
     def get_all(self) -> Sequence[T]:
         return list(self._data)
@@ -127,22 +133,30 @@ class IAuthService(Protocol):
 
 
 class AuthService(IAuthService):
-    def __init__(self, filepath: str) -> None:
+    def __init__(self, filepath: str, user_repo: IUserRepository) -> None:
         self.filepath = filepath
+        self.user_repo = user_repo
         self._current_user: Optional[User] = self._load_user()
 
     def _load_user(self) -> Optional[User]:
         if os.path.exists(self.filepath):
-            with open(self.filepath, 'rb') as f:
-                return pickle.load(f)
+            try:
+                with open(self.filepath, 'rb') as f:
+                    login = pickle.load(f)
+                    return self.user_repo.get_by_login(login)
+            except (OSError, pickle.PickleError) as e:
+                print(f"Ошибка при загрузке пользователя из {self.filepath}: {e}")
         return None
 
     def _save_user(self) -> None:
-        if self._current_user:
-            with open(self.filepath, 'wb') as f:
-                pickle.dump(self._current_user, f)
-        elif os.path.exists(self.filepath):
-            os.remove(self.filepath)
+        try:
+            if self._current_user:
+                with open(self.filepath, 'wb') as f:
+                    pickle.dump(self._current_user.login, f)
+            elif os.path.exists(self.filepath):
+                os.remove(self.filepath)
+        except (OSError, pickle.PickleError) as e:
+            print(f"Ошибка при сохранении сессии пользователя: {e}")
 
     def sign_in(self, user: User) -> None:
         self._current_user = user
@@ -173,7 +187,7 @@ def demo():
     user_file = "users.json"
     auth_file = "auth.pkl"
     repo = UserRepository(user_file)
-    auth = AuthService(auth_file)
+    auth = AuthService(auth_file, repo)
 
     print("=== Демонстрация ===")
 
@@ -198,7 +212,7 @@ def demo():
     print("Выход из аккаунта.")
     print_json("Выход из аккаунта", "ok")
 
-    auth = AuthService(auth_file)
+    auth = AuthService(auth_file, repo)
     if auth.is_authorized:
         print("Автоматически вошли как:", auth.current_user.name)
         print_json("Автоавторизация", auth.current_user.to_dict())
