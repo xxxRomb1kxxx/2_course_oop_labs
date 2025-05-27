@@ -30,7 +30,10 @@ class ReLogFilter:
 
 class ConsoleHandler:
     def handle(self, text: str) -> None:
-        print(f"CONSOLE: {text}")
+        try:
+            print(f"CONSOLE: {text}")
+        except Exception as e:
+            print(f"CONSOLE ERROR: Не удалось вывести лог в консоль: {e}")
 
 
 class FileHandler:
@@ -38,8 +41,11 @@ class FileHandler:
         self.filename = filename
 
     def handle(self, text: str) -> None:
-        with open(self.filename, 'a', encoding='utf-8') as f:
-            f.write(f"{text}\n")
+        try:
+            with open(self.filename, 'a', encoding='utf-8') as f:
+                f.write(f"{text}\n")
+        except OSError as e:
+            print(f"FILE ERROR: Не удалось записать в файл '{self.filename}': {e}")
 
 
 class SocketHandler:
@@ -48,7 +54,10 @@ class SocketHandler:
         self.port = port
 
     def handle(self, text: str) -> None:
-        print(f"[MOCK SOCKET] Лог отправлен: {text}")
+        try:
+            print(f"[MOCK SOCKET] Лог отправлен: {text}")
+        except Exception as e:
+            print(f"SOCKET ERROR: Не удалось отправить лог на {self.host}:{self.port}: {e}")
 
 
 class SyslogHandler:
@@ -56,7 +65,10 @@ class SyslogHandler:
         self.facility = facility
 
     def handle(self, text: str) -> None:
-        print(f"SYSLOG ({self.facility}): {text}")
+        try:
+            print(f"SYSLOG ({self.facility}): {text}")
+        except Exception as e:
+            print(f"SYSLOG ERROR: Не удалось отправить лог: {e}")
 
 
 class Logger:
@@ -70,13 +82,17 @@ class Logger:
                 return
 
         for handler in self.handlers:
-            handler.handle(text)
+            try:
+                handler.handle(text)
+            except Exception as e:
+                print(f"HANDLER ERROR: {handler.__class__.__name__} завершился с ошибкой: {e}")
 
 
 if __name__ == "__main__":
     error_filter = SimpleLogFilter("ERROR")
     warn_filter = SimpleLogFilter("WARN")
     http_filter = ReLogFilter(r"HTTP/\d\.\d")
+
     console_handler = ConsoleHandler()
     file_handler = FileHandler("app.log")
     socket_handler = SocketHandler("localhost", 12345)
@@ -92,6 +108,7 @@ if __name__ == "__main__":
 
     print("\n=== Testing warn logger ===")
     warn_logger.log("WARN: Memory usage high")
+
     print("\n=== Testing HTTP logger ===")
     http_logger.log("HTTP/1.1 GET /index.html")
     http_logger.log("TCP connection established")
