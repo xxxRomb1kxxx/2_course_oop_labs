@@ -22,7 +22,10 @@ class SimpleLogFilter:
 
 class ReLogFilter:
     def __init__(self, pattern: str):
-        self.pattern = re.compile(pattern)
+        try:
+            self.pattern = re.compile(pattern)
+        except re.error as e:
+            raise ValueError(f"Invalid regex '{pattern}': {e}") from None
 
     def match(self, text: str) -> bool:
         return bool(self.pattern.search(text))
